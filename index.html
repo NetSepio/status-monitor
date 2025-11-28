@@ -268,6 +268,15 @@
       letter-spacing: -0.5px;
     }
     
+    .service.clickable-card {
+      cursor: pointer;
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .service.clickable-card:hover {
+      transform: translateY(-10px) scale(1.02);
+    }
+
     .services-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -731,7 +740,7 @@
     <!-- CYRENE -->
     <section class="category" aria-labelledby="cyrene-title">
       <div class="category-header">
-        <img src="/images/cyrene-logo.png" alt="Cyrene Logo" class="category-logo">
+        <img src="/path/to/cyrene-logo.png" alt="Cyrene Logo" class="category-logo">
         <h2 id="cyrene-title" class="category-title">Cyrene</h2>
       </div>
       
@@ -743,7 +752,7 @@
     <!-- NETSEPIO -->
     <section class="category" aria-labelledby="netsepio-title">
       <div class="category-header">
-        <img src="/images/netsepio-logo.png" alt="NetSepio Logo" class="category-logo">
+        <img src="/path/to/netsepio-logo.png" alt="NetSepio Logo" class="category-logo">
         <h2 id="netsepio-title" class="category-title">NetSepio</h2>
       </div>
       
@@ -755,7 +764,7 @@
     <!-- EREBRUS -->
     <section class="category" aria-labelledby="erebrus-title">
       <div class="category-header">
-        <img src="/images/erebrus-logo.png" alt="Erebrus Logo" class="category-logo">
+        <img src="/path/to/erebrus-logo.png" alt="Erebrus Logo" class="category-logo">
         <h2 id="erebrus-title" class="category-title">Erebrus</h2>
       </div>
       
@@ -823,11 +832,11 @@
       const sslText = sslValid ? `SSL Valid (${sslDaysLeft}d left)` : 'SSL Invalid';
       
       return `
-        <div class="service status-${statusClass} ${isLoading ? 'loading' : ''}" data-check-id="${data.id}">
+        <div class="service status-${statusClass} ${isLoading ? 'loading' : ''} clickable-card" data-check-id="${data.id}" data-name="${data.name}">
           <div class="service-header">
             <div class="service-title-wrapper">
               <h3 class="service-title">${data.name}</h3>
-              <a href="${data.url}" target="_blank" class="service-url">${data.url}</a>
+              <a href="${data.url}" target="_blank" class="service-url" onclick="event.stopPropagation()">${data.url}</a>
             </div>
             <div class="status-badge ${statusClass}">
               <span class="status-dot"></span>
@@ -1028,6 +1037,16 @@
       
       console.log('✅ Status dashboard initialized');
       console.log(`🔄 Auto-refresh every ${CONFIG.REFRESH_INTERVAL / 1000}s`);
+
+      document.addEventListener('click', (e) => {
+        const card = e.target.closest('.clickable-card');
+        if (card && !e.target.closest('a')) {
+          const checkId = card.dataset.checkId;
+          const name = card.dataset.name;
+          window.location.href = `service-detail.html?id=${checkId}&name=${encodeURIComponent(name)}`;
+        }
+      });
+
     }
 
     // Start the dashboard when page loads
