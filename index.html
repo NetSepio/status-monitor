@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Status Page — Service Monitoring</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --bg-gradient: linear-gradient(135deg, #0a0a0f 0%, #1a0b2e 50%, #0a0a0f 100%);
+      --card: rgba(255, 255, 255, 0.03);
+      --card-border: rgba(139, 92, 246, 0.2);
+      --text: #ffffff;
+      --text-muted: #a0a0b0;
+      --online: #00ff88;
+      --online-glow: rgba(0, 255, 136, 0.4);
+      --offline: #ff0055;
+      --offline-glow: rgba(255, 0, 85, 0.4);
+      --warning: #ffa500;
+      --disabled: #6b7280;
+      --cyan: #00d9ff;
+      --purple: #8b5cf6;
+      --pink: #ff00ff;
+    }
+    
+    * {
+      box-sizing: border-box;
+    }
+    
+    @keyframes gradient-shift {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+    
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-20px); }
+    }
+    
+    @keyframes grid-pulse {
+      0%, 100% { opacity: 0.1; }
+      50% { opacity: 0.3; }
+    }
+    
+    html,body { 
+      height: 100%; 
+      margin: 0; 
+      background: var(--bg);
+      background-image: 
+        radial-gradient(circle at 20% 50%, rgba(139, 92, 246, 0.15) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(0, 217, 255, 0.15) 0%, transparent 50%),
+        radial-gradient(circle at 40% 20%, rgba(255, 0, 255, 0.1) 0%, transparent 50%);
+      color: var(--text); 
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      line-height: 1.5;
+      position: relative;
+      overflow-x: hidden;
+    }
+    
+    /* Animated grid background */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-image: 
+        linear-gradient(rgba(139, 92, 246, 0.1) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(139, 92, 246, 0.1) 1px, transparent 1px);
+      background-size: 50px 50px;
+      animation: grid-pulse 4s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 0;
+    }
+    
+    header { 
+      padding: 16px 20px;
+      background: rgba(10, 10, 15, 0.8);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(139, 92, 246, 0.3);
+      box-shadow: 0 4px 30px rgba(139, 92, 246, 0.1);
+      position: relative;
+      z-index: 10;
+    }
+    
+    .header-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+    
+    .header-left {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    
+    .header-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin: 0;
+      background: linear-gradient(135deg, #00ff88 0%, #00d9ff 50%, #8b5cf6 100%);
+      background-size: 200% 200%;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: gradient-shift 6s ease infinite;
+      letter-spacing: -0.5px;
+    }
+    
+    .header-status {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .overall-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      backdrop-filter: blur(10px);
+      border: 1px solid;
+    }
+    
+    .overall-status.all-operational {
+      background: rgba(0, 255, 136, 0.15);
+      color: var(--online);
+      border-color: rgba(0, 255, 136, 0.4);
+      box-shadow: 0 0 20px var(--online-glow);
+    }
+    
+    .overall-status.partial-outage {
+      background: rgba(255, 165, 0, 0.15);
+      color: var(--warning);
+      border-color: rgba(255, 165, 0, 0.4);
+      box-shadow: 0 0 20px rgba(255, 165, 0, 0.3);
+    }
+    
+    .overall-status.major-outage {
+      background: rgba(255, 0, 85, 0.15);
+      color: var(--offline);
+      border-color: rgba(255, 0, 85, 0.4);
+      box-shadow: 0 0 20px var(--offline-glow);
+      animation: pulse-status 2s ease-in-out infinite;
+    }
+    
+    @keyframes pulse-status {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+    
+    .overall-status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      position: relative;
+      flex-shrink: 0;
+    }
+    
+    .overall-status.all-operational .overall-status-dot {
+      background: var(--online);
+      box-shadow: 0 0 12px var(--online);
+    }
+    
+    .overall-status.partial-outage .overall-status-dot {
+      background: var(--warning);
+      box-shadow: 0 0 12px var(--warning);
+    }
+    
+    .overall-status.major-outage .overall-status-dot {
+      background: var(--offline);
+      box-shadow: 0 0 12px var(--offline);
+    }
+    
+    .overall-status-dot::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: inherit;
+      opacity: 0.3;
+      animation: pulse-ring 2s ease-out infinite;
+    }
+    
+    .last-updated {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: 'Courier New', monospace;
+      opacity: 0.8;
+      white-space: nowrap;
+    }
+    
+    .container { 
+      max-width: 1400px; 
+      margin: 24px auto; 
+      padding: 0 20px; 
+      position: relative;
+      z-index: 1;
+    }
+    
+    .category { 
+      margin-bottom: 40px; 
+    }
+    
+    .category-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+      padding: 12px 0;
+      position: relative;
+    }
+    
+    .category-header::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, 
+        transparent 0%, 
+        rgba(139, 92, 246, 0.6) 20%, 
+        rgba(0, 217, 255, 0.6) 50%,
+        rgba(139, 92, 246, 0.6) 80%, 
+        transparent 100%);
+    }
+    
+    .category-logo {
+      width: 36px;
+      height: 36px;
+      object-fit: contain;
+      border-radius: 10px;
+      padding: 6px;
+      background: rgba(139, 92, 246, 0.1);
+      border: 2px solid rgba(139, 92, 246, 0.3);
+      box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
+      transition: all 0.3s ease;
+    }
+    
+    .category-logo:hover {
+      transform: scale(1.1) rotate(5deg);
+      box-shadow: 0 0 30px rgba(139, 92, 246, 0.5);
+    }
+    
+    .category-title { 
+      font-size: 22px; 
+      margin: 0;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--purple) 0%, var(--cyan) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -0.5px;
+    }
+    
+    .services-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 16px;
+    }
+    
+    .service { 
+      background: rgba(10, 10, 15, 0.6);
+      backdrop-filter: blur(20px);
+      padding: 16px; 
+      border-radius: 16px; 
+      border: 1px solid var(--card-border);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      position: relative;
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+    
+    /* Animated gradient border effect */
+    .service::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      border-radius: 20px;
+      padding: 1px;
+      background: linear-gradient(135deg, 
+        transparent 0%, 
+        rgba(139, 92, 246, 0.3) 50%, 
+        transparent 100%);
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+      pointer-events: none;
+    }
+    
+    .service:hover {
+      transform: translateY(-8px);
+      border-color: rgba(139, 92, 246, 0.5);
+    }
+    
+    .service:hover::after {
+      opacity: 1;
+    }
+    
+    /* Status indicator line at top */
+    .service::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: rgba(139, 92, 246, 0.3);
+      transition: all 0.3s ease;
+    }
+    
+    /* Online status */
+    .service.status-online {
+      border-color: rgba(0, 255, 136, 0.3);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 40px var(--online-glow);
+    }
+    
+    .service.status-online::before {
+      background: linear-gradient(90deg, var(--online) 0%, var(--cyan) 100%);
+      box-shadow: 0 0 20px var(--online-glow);
+    }
+    
+    .service.status-online:hover {
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 60px var(--online-glow);
+    }
+    
+    /* Offline status */
+    .service.status-offline {
+      border-color: rgba(255, 0, 85, 0.4);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 40px var(--offline-glow);
+      animation: pulse-offline 2s ease-in-out infinite;
+    }
+    
+    .service.status-offline::before {
+      background: linear-gradient(90deg, var(--offline) 0%, #ff1744 100%);
+      box-shadow: 0 0 20px var(--offline-glow);
+      animation: pulse-glow 2s ease-in-out infinite;
+    }
+    
+    @keyframes pulse-offline {
+      0%, 100% { 
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 40px var(--offline-glow);
+      }
+      50% { 
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 60px var(--offline-glow);
+      }
+    }
+    
+    @keyframes pulse-glow {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+    
+    /* Disabled status */
+    .service.status-disabled {
+      border-color: rgba(107, 114, 128, 0.3);
+      opacity: 0.5;
+    }
+    
+    .service.status-disabled::before {
+      background: var(--disabled);
+    }
+    
+    /* Loading state */
+    .service.loading {
+      opacity: 0.7;
+      animation: float 3s ease-in-out infinite;
+    }
+    
+    .service-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    
+    .service-title-wrapper {
+      flex: 1;
+      min-width: 0;
+    }
+    
+    .service-title { 
+      font-size: 15px; 
+      font-weight: 700;
+      margin: 0 0 4px 0;
+      color: var(--text);
+      letter-spacing: -0.3px;
+    }
+    
+    .service-url {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-decoration: none;
+      word-break: break-all;
+      opacity: 0.7;
+      transition: all 0.3s ease;
+      font-family: 'Courier New', monospace;
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    
+    .service-url:hover {
+      color: var(--cyan);
+      opacity: 1;
+    }
+    
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+      backdrop-filter: blur(10px);
+      flex-shrink: 0;
+    }
+    
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      position: relative;
+      flex-shrink: 0;
+    }
+    
+    .status-dot::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: inherit;
+      opacity: 0.3;
+      animation: pulse-ring 2s ease-out infinite;
+    }
+    
+    @keyframes pulse-ring {
+      0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.5; }
+      100% { transform: translate(-50%, -50%) scale(2); opacity: 0; }
+    }
+    
+    .status-badge.online {
+      background: rgba(0, 255, 136, 0.15);
+      color: var(--online);
+      border: 1px solid rgba(0, 255, 136, 0.4);
+      box-shadow: 0 0 20px var(--online-glow);
+    }
+    
+    .status-badge.online .status-dot {
+      background: var(--online);
+      box-shadow: 0 0 12px var(--online);
+    }
+    
+    .status-badge.offline {
+      background: rgba(255, 0, 85, 0.15);
+      color: var(--offline);
+      border: 1px solid rgba(255, 0, 85, 0.4);
+      box-shadow: 0 0 20px var(--offline-glow);
+    }
+    
+    .status-badge.offline .status-dot {
+      background: var(--offline);
+      box-shadow: 0 0 12px var(--offline);
+    }
+    
+    .status-badge.disabled {
+      background: rgba(107, 114, 128, 0.15);
+      color: var(--disabled);
+      border: 1px solid rgba(107, 114, 128, 0.3);
+    }
+    
+    .status-badge.disabled .status-dot {
+      background: var(--disabled);
+      animation: none;
+    }
+    
+    .status-badge.disabled .status-dot::after {
+      display: none;
+    }
+    
+    .service-stats {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    
+    .stat-item {
+      background: rgba(139, 92, 246, 0.05);
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(139, 92, 246, 0.2);
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .stat-item::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--purple), transparent);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    
+    .stat-item:hover {
+      border-color: rgba(139, 92, 246, 0.5);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 20px rgba(139, 92, 246, 0.2);
+    }
+    
+    .stat-item:hover::before {
+      opacity: 1;
+    }
+    
+    .stat-label {
+      font-size: 9px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+      font-weight: 600;
+    }
+    
+    .stat-value {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: -0.5px;
+      line-height: 1;
+    }
+    
+    .stat-value.good {
+      color: var(--online);
+      text-shadow: 0 0 20px var(--online-glow);
+    }
+    
+    .stat-value.bad {
+      color: var(--offline);
+      text-shadow: 0 0 20px var(--offline-glow);
+    }
+    
+    .stat-unit {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-left: 2px;
+    }
+    
+    .service-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 10px;
+      border-top: 1px solid rgba(139, 92, 246, 0.2);
+      font-size: 9px;
+      color: var(--text-muted);
+      font-family: 'Courier New', monospace;
+      gap: 8px;
+    }
+    
+    .ssl-indicator {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 10px;
+      background: rgba(139, 92, 246, 0.1);
+      border: 1px solid rgba(139, 92, 246, 0.2);
+      font-size: 9px;
+      flex-shrink: 0;
+    }
+    
+    .ssl-indicator.valid {
+      color: var(--online);
+      border-color: rgba(0, 255, 136, 0.3);
+      background: rgba(0, 255, 136, 0.05);
+    }
+    
+    .ssl-indicator.invalid {
+      color: var(--offline);
+      border-color: rgba(255, 0, 85, 0.3);
+      background: rgba(255, 0, 85, 0.05);
+    }
+    
+    .ssl-icon {
+      font-size: 14px;
+    }
+    
+    .error-message {
+      background: rgba(255, 0, 85, 0.1);
+      border: 1px solid rgba(255, 0, 85, 0.3);
+      color: var(--offline);
+      padding: 16px;
+      border-radius: 12px;
+      font-size: 13px;
+      text-align: center;
+      backdrop-filter: blur(10px);
+    }
+    
+    .loading-spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(139, 92, 246, 0.3);
+      border-radius: 50%;
+      border-top-color: var(--purple);
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    /* Responsive breakpoints */
+    @media (max-width: 900px) {
+      .services-grid {
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      }
+      
+      .service-stats {
+        grid-template-columns: 1fr;
+      }
+    }
+    
+    @media (max-width: 600px) {
+      .services-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .header-container {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+      
+      .header-status {
+        width: 100%;
+        justify-content: flex-start;
+      }
+      
+      .header-title {
+        font-size: 18px;
+      }
+      
+      .overall-status {
+        font-size: 11px;
+        padding: 6px 12px;
+      }
+      
+      .last-updated {
+        font-size: 10px;
+      }
+      
+      header {
+        padding: 12px 16px;
+      }
+      
+      .service-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      
+      body::before {
+        background-size: 30px 30px;
+      }
+      
+      .category { 
+        margin-bottom: 32px; 
+      }
+      
+      .container { 
+        margin: 20px auto; 
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-container">
+      <div class="header-left">
+        <h1 class="header-title">⚡ Service Status Monitor</h1>
+        <p class="last-updated" id="lastUpdated">Checking...</p>
+      </div>
+      <div class="header-status">
+        <div class="overall-status all-operational" id="overallStatus">
+          <span class="overall-status-dot"></span>
+          <span id="statusText">All Systems Operational</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+
+    <!-- CYRENE -->
+    <section class="category" aria-labelledby="cyrene-title">
+      <div class="category-header">
+        <img src="/images/cyrene-logo.png" alt="Cyrene Logo" class="category-logo">
+        <h2 id="cyrene-title" class="category-title">Cyrene</h2>
+      </div>
+      
+      <div class="services-grid" id="cyrene-services">
+        <!-- Services will be injected here -->
+      </div>
+    </section>
+
+    <!-- NETSEPIO -->
+    <section class="category" aria-labelledby="netsepio-title">
+      <div class="category-header">
+        <img src="/images/netsepio-logo.png" alt="NetSepio Logo" class="category-logo">
+        <h2 id="netsepio-title" class="category-title">NetSepio</h2>
+      </div>
+      
+      <div class="services-grid" id="netsepio-services">
+        <!-- Services will be injected here -->
+      </div>
+    </section>
+
+    <!-- EREBRUS -->
+    <section class="category" aria-labelledby="erebrus-title">
+      <div class="category-header">
+        <img src="/images/erebrus-logo.png" alt="Erebrus Logo" class="category-logo">
+        <h2 id="erebrus-title" class="category-title">Erebrus</h2>
+      </div>
+      
+      <div class="services-grid" id="erebrus-services">
+        <!-- Services will be injected here -->
+      </div>
+    </section>
+
+  </div>
+
+  <script>
+    // Configuration
+    const CONFIG = {
+      API_KEY: 'ek_live_91e54aca1902b01026dfd9d1cd3d4757ad3c51baa1bb790dc60a37d149bf5033',
+      API_BASE_URL: 'https://us-central1-exit1-dev.cloudfunctions.net/publicApi/v1/public/checks',
+      REFRESH_INTERVAL: 30000, // 30 seconds
+      SERVICES: {
+        cyrene: [
+          { id: 'Rv9SCsrnw2H186s4qypm', name: 'CyreneAI.com' }
+        ],
+        netsepio: [
+          { id: 'rC3o4eOolICwjnb9Hzcd', name: 'Netsepio.com' },
+          { id: 'PiTxLwHu3xSQXc9Tgv2U', name: 'App.netsepio.com' },
+          { id: 'R8TpMPurMCpOgDTkJv3N', name: 'Gateway.netsepio.com' }
+        ],
+        erebrus: [
+          { id: 'hL4321c296jQW0EQTVKx', name: 'Erebrus.io' },
+          { id: '99YAHTkbFwa5i7iHt3f2', name: 'IPFS.erebrus.io' }
+        ]
+      }
+    };
+
+    // Utility functions
+    function formatTime(timestamp) {
+      const date = new Date(timestamp);
+      const now = new Date();
+      const diff = now - date;
+      
+      if (diff < 60000) return 'Just now';
+      if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+      if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+      return date.toLocaleDateString();
+    }
+
+    function formatResponseTime(ms) {
+      if (ms < 100) return 'good';
+      if (ms < 500) return 'ok';
+      return 'slow';
+    }
+
+    // Create service card HTML
+    function createServiceCard(data, isLoading = false) {
+      const status = data.disabled ? 'disabled' : data.status;
+      const statusClass = status === 'online' ? 'online' : status === 'offline' ? 'offline' : 'disabled';
+      const statusText = status === 'online' ? 'Online' : status === 'offline' ? 'Offline' : 'Disabled';
+      
+      const responseTimeClass = data.responseTime ? formatResponseTime(data.responseTime) : '';
+      const statusCode = data.lastStatusCode || '—';
+      const statusCodeClass = statusCode >= 200 && statusCode < 300 ? 'good' : 'bad';
+      
+      const sslValid = data.sslCertificate?.valid;
+      const sslDaysLeft = data.sslCertificate?.daysUntilExpiry || 0;
+      const sslClass = sslValid ? 'valid' : 'invalid';
+      const sslIcon = sslValid ? '🔒' : '⚠️';
+      const sslText = sslValid ? `SSL Valid (${sslDaysLeft}d left)` : 'SSL Invalid';
+      
+      return `
+        <div class="service status-${statusClass} ${isLoading ? 'loading' : ''}" data-check-id="${data.id}">
+          <div class="service-header">
+            <div class="service-title-wrapper">
+              <h3 class="service-title">${data.name}</h3>
+              <a href="${data.url}" target="_blank" class="service-url">${data.url}</a>
+            </div>
+            <div class="status-badge ${statusClass}">
+              <span class="status-dot"></span>
+              ${statusText}
+            </div>
+          </div>
+          
+          <div class="service-stats">
+            <div class="stat-item">
+              <div class="stat-label">Response Time</div>
+              <div class="stat-value ${responseTimeClass === 'good' ? 'good' : ''}">
+                ${data.responseTime || '—'}<span class="stat-unit">ms</span>
+              </div>
+            </div>
+            
+            <div class="stat-item">
+              <div class="stat-label">Status Code</div>
+              <div class="stat-value ${statusCodeClass}">
+                ${statusCode}
+              </div>
+            </div>
+          </div>
+          
+          <div class="service-footer">
+            <span>Last checked: ${formatTime(data.lastChecked)}</span>
+            <span class="ssl-indicator ${sslClass}">
+              <span class="ssl-icon">${sslIcon}</span>
+              ${sslText}
+            </span>
+          </div>
+        </div>
+      `;
+    }
+
+    function createLoadingCard(service) {
+      return `
+        <div class="service loading" data-check-id="${service.id}">
+          <div class="service-header">
+            <div class="service-title-wrapper">
+              <h3 class="service-title">${service.name}</h3>
+              <div class="service-url">Loading...</div>
+            </div>
+            <div class="loading-spinner"></div>
+          </div>
+        </div>
+      `;
+    }
+
+    function createErrorCard(service, error) {
+      return `
+        <div class="service status-offline" data-check-id="${service.id}">
+          <div class="service-header">
+            <div class="service-title-wrapper">
+              <h3 class="service-title">${service.name}</h3>
+            </div>
+            <div class="status-badge offline">
+              <span class="status-dot"></span>
+              Error
+            </div>
+          </div>
+          <div class="error-message">
+            Failed to load status: ${error}
+          </div>
+        </div>
+      `;
+    }
+
+    // Fetch service status from API
+    async function fetchServiceStatus(checkId) {
+      try {
+        const response = await fetch(`${CONFIG.API_BASE_URL}/${checkId}`, {
+          headers: {
+            'X-Api-Key': CONFIG.API_KEY
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        
+        const result = await response.json();
+        return result.data;
+      } catch (error) {
+        console.error(`Error fetching status for ${checkId}:`, error);
+        throw error;
+      }
+    }
+
+    // Update a single service
+    async function updateService(category, service) {
+      const container = document.getElementById(`${category}-services`);
+      const existingCard = container.querySelector(`[data-check-id="${service.id}"]`);
+      
+      try {
+        const data = await fetchServiceStatus(service.id);
+        const newCard = createServiceCard(data);
+        
+        if (existingCard) {
+          existingCard.outerHTML = newCard;
+        } else {
+          container.insertAdjacentHTML('beforeend', newCard);
+        }
+      } catch (error) {
+        const errorCard = createErrorCard(service, error.message);
+        
+        if (existingCard) {
+          existingCard.outerHTML = errorCard;
+        } else {
+          container.insertAdjacentHTML('beforeend', errorCard);
+        }
+      }
+    }
+
+    // Update all services
+    async function updateAllServices() {
+      const updatePromises = [];
+      
+      for (const [category, services] of Object.entries(CONFIG.SERVICES)) {
+        for (const service of services) {
+          updatePromises.push(updateService(category, service));
+        }
+      }
+      
+      await Promise.all(updatePromises);
+      
+      // Update last updated time
+      const now = new Date();
+      document.getElementById('lastUpdated').textContent = 
+        `Updated: ${now.toLocaleTimeString()}`;
+      
+      // Calculate and update overall status
+      updateOverallStatus();
+    }
+    
+    // Calculate overall status based on all services
+    function updateOverallStatus() {
+      const allServices = document.querySelectorAll('.service');
+      let onlineCount = 0;
+      let offlineCount = 0;
+      let disabledCount = 0;
+      let totalCount = 0;
+      
+      allServices.forEach(service => {
+        if (service.classList.contains('loading')) return;
+        
+        totalCount++;
+        if (service.classList.contains('status-online')) {
+          onlineCount++;
+        } else if (service.classList.contains('status-offline')) {
+          offlineCount++;
+        } else if (service.classList.contains('status-disabled')) {
+          disabledCount++;
+        }
+      });
+      
+      const overallStatusEl = document.getElementById('overallStatus');
+      const statusTextEl = document.getElementById('statusText');
+      
+      // Remove all status classes
+      overallStatusEl.classList.remove('all-operational', 'partial-outage', 'major-outage');
+      
+      const activeServices = totalCount - disabledCount;
+      
+      if (offlineCount === 0 && activeServices > 0) {
+        // All operational
+        overallStatusEl.classList.add('all-operational');
+        statusTextEl.textContent = 'All Systems Operational';
+      } else if (offlineCount >= activeServices / 2) {
+        // Major outage (50% or more services down)
+        overallStatusEl.classList.add('major-outage');
+        statusTextEl.textContent = `Major Outage (${offlineCount}/${activeServices} down)`;
+      } else if (offlineCount > 0) {
+        // Partial outage
+        overallStatusEl.classList.add('partial-outage');
+        statusTextEl.textContent = `Partial Outage (${offlineCount}/${activeServices} affected)`;
+      } else {
+        // No services loaded yet
+        overallStatusEl.classList.add('all-operational');
+        statusTextEl.textContent = 'Checking Status...';
+      }
+    }
+
+    // Initialize the dashboard
+    async function init() {
+      // Show loading cards
+      for (const [category, services] of Object.entries(CONFIG.SERVICES)) {
+        const container = document.getElementById(`${category}-services`);
+        for (const service of services) {
+          container.insertAdjacentHTML('beforeend', createLoadingCard(service));
+        }
+      }
+      
+      // Initial load
+      await updateAllServices();
+      
+      // Set up auto-refresh
+      setInterval(updateAllServices, CONFIG.REFRESH_INTERVAL);
+      
+      console.log('✅ Status dashboard initialized');
+      console.log(`🔄 Auto-refresh every ${CONFIG.REFRESH_INTERVAL / 1000}s`);
+    }
+
+    // Start the dashboard when page loads
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+  </script>
+</body>
+</html>
